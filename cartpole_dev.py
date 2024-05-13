@@ -18,7 +18,7 @@ def fitness_func(ga_instance, solution, sol_idx):
     sum_reward = 0
     done = False
 
-    while not done and sum_reward < 1000:
+    while not done and sum_reward < 2000:
         observation_tensor = torch.tensor(observation, dtype=torch.float)
         q_val = model(observation_tensor)
         action = np.argmax(q_val)
@@ -77,7 +77,7 @@ def main() -> None:
 
     torch_ga = pygad.torchga.TorchGA(model=model, num_solutions=10)
 
-    NUM_GEN = 50
+    NUM_GEN = 30
     NUM_PARENTS_MATING = 5
     INIT_POP = torch_ga.population_weights
     PARENT_SELECTION_TYPE = "sss"
@@ -100,6 +100,28 @@ def main() -> None:
     )
 
     ga_instance.run()
+    solution, solution_fitness, solution_idx = ga_instance.best_solution()
+    print("Fitness value of the best solution = {solution_fitness}".format(solution_fitness=solution_fitness))
+    print("Index of the best solution : {solution_idx}".format(solution_idx=solution_idx))
+
+
+    env = gym.make("CartPole-v1", render_mode="human")
+    model_weights_dict = pygad.torchga.model_weights_as_dict(model=model, weights_vector=solution)
+    model.load_state_dict(model_weights_dict)
+
+    # play game
+    observation, _ = env.reset()
+    sum_reward = 0
+    done = False
+
+    while not done:
+        env.render()
+        observation_tensor = torch.tensor(observation, dtype=torch.float)
+        q_val = model(observation_tensor)
+        action = np.argmax(q_val)
+        action = torch.asarray(action)
+        observation, reward, done, _, _ = env.step(action.item())
+        sum_reward += reward
 
 if __name__ == "__main__":
     main()
