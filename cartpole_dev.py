@@ -17,8 +17,9 @@ def fitness_func(ga_instance, solution, sol_idx):
     observation, info = env.reset()
     sum_reward = 0
     done = False
+    num_steps = 0
 
-    while not done and sum_reward < 2000:
+    while not done and num_steps < 5000:
         observation_tensor = torch.tensor(observation, dtype=torch.float)
         q_val = model(observation_tensor).detach().numpy()
         q_val = np.clip(q_val, action_min, action_max)
@@ -26,12 +27,13 @@ def fitness_func(ga_instance, solution, sol_idx):
         # action = torch.asarray(action)
         observation, reward, done, _, _ = env.step(q_val)
         sum_reward += reward
+        num_steps +=1
 
     return sum_reward
 
 
 def on_generation(ga_instance):
-    if ga_instance.generations_completed % 20 == 0:
+    if ga_instance.generations_completed % 2 == 0:
         # print(
         #     "Generation = {generation}".format(generation=ga_instance.generations_completed)
         # )
@@ -59,16 +61,12 @@ def myModel(observation_space, units, action_space):
 def main() -> None:
     global env, model, observation_size, action_min, action_max
 
-    env = gym.make("InvertedPendulum-v4")
+    env = gym.make("HalfCheetah-v4")
     observation_size = env.observation_space.shape[0]
 
-    print(env.action_space.high[0])
-    print("-----------------------------------------------")
     action_min = env.action_space.low[0]
     action_max = env.action_space.high[0]
     action_space = env.action_space.shape[0]
-    print(action_space, action_min, action_max)
-    print('------------------------------------------------')
 
     torch.set_grad_enabled(False)
 
@@ -79,7 +77,7 @@ def main() -> None:
     num_solutions = 10
     torch_ga = pygad.torchga.TorchGA(model=model, num_solutions=num_solutions)
 
-    NUM_GEN = 500
+    NUM_GEN = 50
     NUM_PARENTS_MATING = num_solutions
     INIT_POP = torch_ga.population_weights
     PARENT_SELECTION_TYPE = "sss"
@@ -109,7 +107,7 @@ def main() -> None:
     print("Index of the best solution : {solution_idx}".format(solution_idx=solution_idx))
 
 
-    env = gym.make("InvertedPendulum-v4", render_mode="human")
+    env = gym.make("HalfCheetah-v4", render_mode="human")
     model_weights_dict = pygad.torchga.model_weights_as_dict(model=model, weights_vector=solution)
     model.load_state_dict(model_weights_dict)
 
@@ -117,22 +115,29 @@ def main() -> None:
     observation, _ = env.reset()
     sum_reward = 0
     done = False
+    max_steps = 1000
+    current_step = 0
+    filename="test_save"
 
-    while not done:
+    while current_step < max_steps:
         env.render()
         observation_tensor = torch.tensor(observation, dtype=torch.float)
         q_val = model(observation_tensor).detach().numpy()
         q_val = np.clip(q_val, action_min, action_max)
-        # action = np.argmax(q_val)
-        # action = torch.asarray(action)
         observation, reward, done, _, _ = env.step(q_val)
         sum_reward += reward
+        current_step += 1
+        # action = np.argmax(q_val)
+        # action = torch.asarray(action)
         # observation_tensor = torch.tensor(observation, dtype=torch.float)
         # q_val = model(observation_tensor)
         # action = np.argmax(q_val)
         # action = torch.asarray(action)
         # observation, reward, done, _, _ = env.step(action.item())
         # sum_reward += reward
+    ga_instance.plot_fitness(title="PyGAD & Keras - Iteration vs. Fitness", linewidth=4)
+    ga_instance.save(filename=filename)
+    print("DONE!")
 
 if __name__ == "__main__":
     main()
