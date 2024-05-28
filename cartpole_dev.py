@@ -111,6 +111,12 @@ def main() -> None:
     model_weights_dict = pygad.torchga.model_weights_as_dict(model=model, weights_vector=solution)
     model.load_state_dict(model_weights_dict)
 
+#     env = gym.make("HalfCheetah-v4", render_mode="human")
+#     loaded_model = pygad.load("runner")
+#     solution, solution_fitness, solution_idx = loaded_model.best_solution()
+#     model_weights_dict = pygad.torchga.model_weights_as_dict(model=model, weights_vector=solution)
+#     model.load_state_dict(model_weights_dict)
+
     # play game
     observation, _ = env.reset()
     sum_reward = 0
@@ -118,6 +124,7 @@ def main() -> None:
     max_steps = 1000
     current_step = 0
     filename="test_save"
+
 
     while current_step < max_steps:
         env.render()
