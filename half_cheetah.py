@@ -36,13 +36,13 @@ def on_generation(ga_instance):
     # Print generation and fitness of the best individual
     gen = generation
     fit = ga_instance.best_solution()[1]
-    print(f"\rGeneration = {gen}, Fitness = {fit}", end="", flush=True)
+    print(f"\rRun: {i+1} Generation: {gen} Fitness: {fit}", end="", flush=True)
 
     # Record one run of the agent at the beginning and middle of the training
     if generation == 1 or generation == 25:
         tmp_env = gym.make("HalfCheetah-v4", render_mode="rgb_array")
         tmp_env = RecordVideo(
-            env=tmp_env, video_folder=filename, name_prefix=f"{generation}-training"
+            env=tmp_env, video_folder=filename, name_prefix=f"{generation}-training-run-{i}"
         )
 
         observation, _ = tmp_env.reset()
@@ -118,7 +118,7 @@ def create_GA_instance(torch_ga, num_solutions, pst, ct, mt) -> pygad.GA:
 
 
 def main() -> None:
-    global env, model, observation_size, action_min, action_max, filename
+    global env, model, observation_size, action_min, action_max, filename, i
 
     env = gym.make("HalfCheetah-v4")
 
@@ -137,15 +137,15 @@ def main() -> None:
 
     num_solutions = 30
 
-    solutions, solution_fits, fit_evo = [], [], []
-    PARENT_SELECTION_TYPES = ["sss", "rws", "rank", "tournament"]
-    CROSSOVER_TYPES = ["two_points", "single_point", "scattered"]
+    PARENT_SELECTION_TYPES = ["rws", "rank", "tournament"]#"sss" missing
+    CROSSOVER_TYPES = ["two_points", "single_point", "scattered", "uniform"]
     MUTATION_TYPES = ["swap"]
 
     for parent in PARENT_SELECTION_TYPES:
         for crossover in CROSSOVER_TYPES:
             for mutation in MUTATION_TYPES:
-                for _ in range(5):
+                solutions, solution_fits, fit_evo = [], [], []
+                for i in range(5):
                     model = myModel(
                         observation_space=observation_size, units=24, action_space=action_space
                     )
@@ -190,10 +190,10 @@ def main() -> None:
                 model.load_state_dict(model_weights_dict)
 
                 tmp_env = gym.make("HalfCheetah-v4", render_mode="rgb_array")
-                env = gym.wrappers.RecordVideo(env=tmp_env, video_folder=filename)
+                tmp_env = gym.wrappers.RecordVideo(env=tmp_env, video_folder=filename)
 
                 # play game and record the final run of the cheetah
-                observation, _ = env.reset()
+                observation, _ = tmp_env.reset()
                 sum_reward = 0
 
                 trunctated = False
@@ -202,11 +202,11 @@ def main() -> None:
                     observation_tensor = torch.tensor(observation, dtype=torch.float)
                     q_val = model(observation_tensor).detach().numpy()
                     q_val = np.clip(q_val, action_min, action_max)
-                    observation, reward, done, trunctated, _ = env.step(q_val)
+                    observation, reward, done, trunctated, _ = tmp_env.step(q_val)
                     sum_reward += reward
 
                 print(f"Agent achieved {sum_reward} on the final run")
-                env.close()
+                tmp_env.close()
                 # ga_instance.save(filename=filename) # save the ga_instance to a pkl file
 
 
