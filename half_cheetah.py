@@ -42,15 +42,26 @@ def on_generation(ga_instance):
     if generation == 1 or generation == 25:
         tmp_env = gym.make("HalfCheetah-v4", render_mode="rgb_array")
         tmp_env = RecordVideo(
-            env=tmp_env, video_folder=filename, name_prefix=f"{generation}-training-run-{i}"
+            env=tmp_env,
+            video_folder=filename,
+            name_prefix=f"{generation}-training-run-{i}",
         )
+
+        solution, _, _ = ga_instance.best_solution()
+        model_weights_dict = pygad.torchga.model_weights_as_dict(
+            model=model, weights_vector=solution
+        )
+        temp_model = myModel(
+            observation_space=observation_size, units=24, action_space=action_space
+        )
+        temp_model.load_state_dict(model_weights_dict)
 
         observation, _ = tmp_env.reset()
         truncated = False
 
         while not truncated:
             observation_tensor = torch.tensor(observation, dtype=torch.float)
-            q_val = model(observation_tensor).detach().numpy()
+            q_val = temp_model(observation_tensor).detach().numpy()
             q_val = np.clip(q_val, action_min, action_max)
             observation, _, _, truncated, _ = tmp_env.step(q_val)
         tmp_env.close()
@@ -85,6 +96,9 @@ def create_GA_instance(torch_ga, num_solutions, pst, ct, mt) -> pygad.GA:
     KEEP_PARENTS = 0
     KEEP_ELITISM = 2
 
+    if mt == "adaptive":
+        MUTATION_PERCENT_GENES = (60, 20)
+
     ga_instance = pygad.GA(
         num_generations=NUM_GEN,
         num_parents_mating=NUM_PARENTS_MATING,
@@ -118,7 +132,7 @@ def create_GA_instance(torch_ga, num_solutions, pst, ct, mt) -> pygad.GA:
 
 
 def main() -> None:
-    global env, model, observation_size, action_min, action_max, filename, i
+    global env, model, observation_size, action_min, action_max, filename, i, action_space
 
     env = gym.make("HalfCheetah-v4")
 
@@ -137,9 +151,27 @@ def main() -> None:
 
     num_solutions = 30
 
-    PARENT_SELECTION_TYPES = ["rws", "rank", "tournament"]#"sss" missing
-    CROSSOVER_TYPES = ["two_points", "single_point", "scattered", "uniform"]
-    MUTATION_TYPES = ["swap"]
+    PARENT_SELECTION_TYPES = [
+        "tournament"
+        "sss",
+        "rws",
+        "rank",
+        "sus",
+        "random",
+    ]  # "sss", "rws", "rank", "sus", "random"
+    CROSSOVER_TYPES = [
+        "two_points",
+        "single_point",
+        "scattered",
+        "uniform",
+    ]  # "two_points", "single_point", "uniform", "scattered"
+    MUTATION_TYPES = [
+        "swap",
+        "random",
+        "inversion",
+        "scramble",
+        "adaptive",
+    ]  # "random", "swap", "inversion", "scramble", None, "adaptive"
 
     for parent in PARENT_SELECTION_TYPES:
         for crossover in CROSSOVER_TYPES:
@@ -147,10 +179,16 @@ def main() -> None:
                 solutions, solution_fits, fit_evo = [], [], []
                 for i in range(5):
                     model = myModel(
-                        observation_space=observation_size, units=24, action_space=action_space
+                        observation_space=observation_size,
+                        units=24,
+                        action_space=action_space,
                     )
-                    torch_ga = pygad.torchga.TorchGA(model=model, num_solutions=num_solutions)
-                    filename, ga_instance = create_GA_instance(torch_ga, num_solutions, parent, crossover, mutation)
+                    torch_ga = pygad.torchga.TorchGA(
+                        model=model, num_solutions=num_solutions
+                    )
+                    filename, ga_instance = create_GA_instance(
+                        torch_ga, num_solutions, parent, crossover, mutation
+                    )
                     ga_instance.run()
                     env.close()
 
@@ -174,14 +212,6 @@ def main() -> None:
                 plt.legend()
                 plt.savefig(filename)
                 plt.show()
-
-                #     ga_instance.run()
-                #     env.close()
-                #
-                #     solution, solution_fitness, solution_idx = ga_instance.best_solution()
-                #     print(f"Fitness value of the best solution = {solution_fitness}")
-                #     print(f"Index of the best solution : {solution_idx}")
-
 
                 # Load the best solution into the model
                 model_weights_dict = pygad.torchga.model_weights_as_dict(
