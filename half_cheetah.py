@@ -3,10 +3,11 @@ import numpy as np
 import pygad.torchga
 import pygad
 import torch
-from gymnasium.wrappers import RecordEpisodeStatistics, RecordVideo
+from gymnasium.wrappers import RecordVideo
 import matplotlib.pyplot as plt
 
 
+# Fitness function for the genetic algorithm
 def fitness_func(ga_instance, solution, sol_idx):
 
     model_weights_dict = pygad.torchga.model_weights_as_dict(
@@ -29,7 +30,7 @@ def fitness_func(ga_instance, solution, sol_idx):
 
     return sum_reward
 
-
+# Callback function that is executed after every generation
 def on_generation(ga_instance):
     generation = ga_instance.generations_completed
 
@@ -38,7 +39,7 @@ def on_generation(ga_instance):
     fit = ga_instance.best_solution()[1]
     print(f"\rRun: {i+1} Generation: {gen} Fitness: {fit}", end="", flush=True)
 
-    # Record one run of the agent at the beginning and middle of the training
+    # Record one run of the best individual at the beginning and the middle of the training
     if generation == 1 or generation == 25:
         tmp_env = gym.make("HalfCheetah-v4", render_mode="rgb_array")
         tmp_env = RecordVideo(
@@ -67,6 +68,7 @@ def on_generation(ga_instance):
         tmp_env.close()
 
 
+# Neural network model, the number of input and output neurons depends on the environment used
 def myModel(observation_space, units, action_space):
     model = torch.nn.Sequential()
 
@@ -82,15 +84,14 @@ def myModel(observation_space, units, action_space):
     return model
 
 
+# Creates an instance of the Genetic Algorithm, since we are doing a grid search with the parameters
+# the parent selection type, crossover type and mutation type are passed in as an argument
 def create_GA_instance(torch_ga, num_solutions, pst, ct, mt) -> pygad.GA:
     NUM_GEN = 50
     NUM_PARENTS_MATING = num_solutions // 2
     INIT_POP = torch_ga.population_weights
-    # PARENT_SELECTION_TYPES = "sss", "rws", "rank", "tournament"
     PARENT_SELECTION_TYPE = pst
-    # CROSSOVER_TYPES = "two_points", "single_point", "uniform", "scattered"
     CROSSOVER_TYPE = ct
-    # MUTATION_TYPES = "random", "swap", "inversion", "scramble", "adaptive"
     MUTATION_TYPE = mt
     MUTATION_PERCENT_GENES = 30
     KEEP_PARENTS = 0
@@ -111,29 +112,23 @@ def create_GA_instance(torch_ga, num_solutions, pst, ct, mt) -> pygad.GA:
         keep_parents=KEEP_PARENTS,
         keep_elitism=KEEP_ELITISM,
         on_generation=on_generation,
-        parallel_processing=["process", 15],
+        parallel_processing=["process", 15], #multi-threading purpose, might need to be adjusted
     )
 
     translation_table = str.maketrans({" ": None, "(": None, ")": None, ",": "_"})
 
     # ga_instance.summary()
-    params = (
-        PARENT_SELECTION_TYPE
-        + "_"
-        + CROSSOVER_TYPE
-        + "_"
-        + MUTATION_TYPE
-        + "_"
-        + str(num_solutions)
-        + "_"
-        + str(MUTATION_PERCENT_GENES).translate(translation_table)
-    )
+    params = (f"{PARENT_SELECTION_TYPE}_{CROSSOVER_TYPE}_{MUTATION_TYPE}_{num_solutions}_{str(MUTATION_PERCENT_GENES).translate(translation_table)}")
+
     return params, ga_instance
 
 
 def main() -> None:
     global env, model, observation_size, action_min, action_max, filename, i, action_space
 
+    # Should work if you change the environment to be any that uses a continuous action space
+    # For discrete environments you might need to change how action_space is done and how an action
+    # is selected during interaction with the environment
     env = gym.make("HalfCheetah-v4")
 
     observation_size = env.observation_space.shape[0]
@@ -152,26 +147,26 @@ def main() -> None:
     num_solutions = 30
 
     PARENT_SELECTION_TYPES = [
-        "tournament"
+        "tournament",
         "sss",
         "rws",
         "rank",
         "sus",
         "random",
-    ]  # "sss", "rws", "rank", "sus", "random"
+    ] 
     CROSSOVER_TYPES = [
         "two_points",
         "single_point",
         "scattered",
         "uniform",
-    ]  # "two_points", "single_point", "uniform", "scattered"
+    ]
     MUTATION_TYPES = [
         "swap",
         "random",
         "inversion",
         "scramble",
         "adaptive",
-    ]  # "random", "swap", "inversion", "scramble", None, "adaptive"
+    ]
 
     for parent in PARENT_SELECTION_TYPES:
         for crossover in CROSSOVER_TYPES:
